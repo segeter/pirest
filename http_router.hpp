@@ -1,7 +1,7 @@
 #pragma once
-#include <boost/algorithm/string.hpp>
 #include <boost/date_time.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/url/parse.hpp>
 #include <memory>
 #include <optional>
 #include <pirest/http_utils.hpp>
@@ -15,8 +15,6 @@
 
 namespace pirest {
 
-inline namespace detail {
-
 template <class T>
 struct IsOptional {
   static constexpr bool kValue = false;
@@ -26,69 +24,6 @@ template <class T>
 struct IsOptional<std::optional<T>> {
   static constexpr bool kValue = true;
 };
-
-template <class S, class K, class V>
-static bool SplitKeyValue(const S& src, K& key, V& val) noexcept {
-  auto pos = src.find('=');
-  if (pos != S::npos) {
-    key = src.substr(0, pos);
-    val = src.substr(pos + 1);
-    return true;
-  }
-  return false;
-}
-
-template <class S>
-static bool IsNeedDecode(const S& str) noexcept {
-  return std::find_if(str.begin(), str.end(),
-                      [](char c) { return c == '%' || c == '+'; }) != str.end();
-}
-
-template <class S>
-static std::string DecodeData(const S& str) noexcept {
-  std::string result;
-  auto len = str.size();
-  result.reserve(len);
-  for (std::size_t i = 0; i < len; ++i) {
-    switch (str[i]) {
-      case '+': {
-        result += ' ';
-        break;
-      }
-      case '%': {
-        if (i + 2 < len) {
-          char c1 = str[i + 1];
-          char c2 = str[i + 2];
-          if (c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9') {
-            c1 -= '0';
-            c2 -= '0';
-          } else if (c1 >= 'a' && c1 <= 'f' && c2 >= 'a' && c2 <= 'f') {
-            c1 = c1 - 'a' + 10;
-            c2 = c2 - 'a' + 10;
-          } else if (c1 >= 'A' && c1 <= 'F' && c2 >= 'A' && c2 <= 'F') {
-            c1 = c1 - 'A' + 10;
-            c2 = c2 - 'A' + 10;
-          } else {
-            result += '%';
-            break;
-          }
-          result += char(c1 * 16 + c2);
-          i += 2;
-        } else {
-          result += '%';
-        }
-        break;
-      }
-      default: {
-        result += str[i];
-        break;
-      }
-    }
-  }
-  return result;
-}
-
-}  // namespace detail
 
 template <class Ret, class... PreArgs>
 class HttpBasicRouter {
@@ -338,20 +273,16 @@ class HttpBasicRouter {
     std::string path;
     ParamList capture_params;
     auto pos = target.find('?');
-    if (pos != std::string::npos) {
-      auto query = target.substr(pos + 1);
+    if (pos != target.npos) {
       path = target.substr(0, pos);
-      std::vector<std::string> vec;
-      boost::split(vec, query, boost::is_any_of("&"));
-      for (auto& str : vec) {
-        std::string k, v;
-        if (SplitKeyValue(str, k, v)) {
-          ToLower(k);
-          capture_params.emplace_back(k);
-        } else {
-          ToLower(str);
-          capture_params.emplace_back(str);
-        }
+      auto tmp = "/" + target.substr(pos);
+      auto r = boost::urls::parse_origin_form(tmp);
+      if (r.has_error()) {
+        throw std::runtime_error("Bad url params");
+      }
+      for (auto param : r.value().params()) {
+        ToLower(param.key);
+        capture_params.emplace_back(param.key);
       }
     } else {
       path = target;
@@ -422,24 +353,12 @@ class HttpBasicRouter {
 
   Ret Routing(PreArgs&&... pre_args, const std::string& method,
               std::string_view target) {
-    std::string_view path_sv, param_sv;
-    auto pos = target.find('?');
-    if (pos != std::string_view::npos) {
-      path_sv = target.substr(0, pos);
-      param_sv = target.substr(pos + 1);
-    } else {
-      path_sv = target;
+    auto r = boost::urls::parse_origin_form(target);
+    if (r.has_error()) {
+      throw std::runtime_error("Bad url target");
     }
     std::smatch results;
-    RouteItem* route = nullptr;
-    std::string decoded_path;
-    if (IsNeedDecode(path_sv)) {
-      decoded_path = DecodeData(path_sv);
-      route = FindRoute(decoded_path, results);
-    } else {
-      decoded_path = path_sv;
-      route = FindRoute(decoded_path, results);
-    }
+    auto route = FindRoute(r.value().path(), results);
     if (!route) {
       throw std::runtime_error("Route not found");
     }
@@ -447,27 +366,10 @@ class HttpBasicRouter {
       throw std::runtime_error("Method not allowed");
     }
     ArgumentMap arg_map;
-    while (param_sv.size() > 0) {
-      std::string_view kv_sv;
-      auto pos = param_sv.find('&');
-      if (pos != std::string_view::npos) {
-        kv_sv = param_sv.substr(0, pos);
-        param_sv.remove_prefix(pos + 1);
-      } else {
-        kv_sv = param_sv;
-        param_sv = "";
-      }
-      std::string key, val;
-      if (SplitKeyValue(kv_sv, key, val)) {
-        if (IsNeedDecode(key)) {
-          key = DecodeData(key);
-        }
-        if (IsNeedDecode(val)) {
-          val = DecodeData(val);
-        }
-        ToLower(key);
-        arg_map.insert(std::make_pair(std::move(key), std::move(val)));
-      }
+    for (auto param : r.value().params()) {
+      ToLower(param.key);
+      arg_map.insert(
+          std::make_pair(std::move(param.key), std::move(param.value)));
     }
     return route->Invoke(std::forward<PreArgs>(pre_args)..., method, results,
                          std::move(arg_map));

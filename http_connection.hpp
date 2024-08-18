@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/beast/http/empty_body.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/status.hpp>
@@ -24,6 +25,14 @@ class HttpConnection {
   const HttpRequest& request() const noexcept { return request_; }
 
   std::string ReleaseBody() noexcept { return std::move(request_.body()); }
+
+  boost::asio::any_io_executor executor() noexcept {
+    return std::visit(
+        [](const auto& conn) -> boost::asio::any_io_executor {
+          return conn->executor();
+        },
+        conn_variant_);
+  }
 
   template <class Body>
   void Respond(boost::beast::http::response<Body>&& resp) {

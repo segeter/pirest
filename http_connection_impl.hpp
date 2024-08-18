@@ -27,6 +27,10 @@ class HttpConnectionBase : public HttpConnection {
     conn_variant_ = this;
   }
 
+  boost::asio::any_io_executor executor() noexcept {
+    return Derived().stream().get_executor();
+  }
+
   void ReadRequest() { ReadRequest(Derived().shared_from_this()); }
 
   void ReadRequest(DerivedPtr&& self) {

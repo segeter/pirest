@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <pirest/http_cors_filter.hpp>
 #include <pirest/http_server.hpp>
 #include <unordered_map>
@@ -64,7 +63,7 @@ static void GetChannelList(const HttpConnection::Ptr& conn) {
   if (body.size() > 0) {
     body.pop_back();
   }
-  conn->Respond(status::ok, std::move(body), "text/plain");
+  conn->Respond(status::ok, std::move(body), "text/plain;charset=utf-8");
 }
 
 static void GetChannel(const HttpConnection::Ptr& conn, std::uint64_t id) {
@@ -75,7 +74,7 @@ static void GetChannel(const HttpConnection::Ptr& conn, std::uint64_t id) {
                          "Not found channel " + std::to_string(id),
                          "text/plain");
   }
-  return conn->Respond(status::ok, it->second, "text/plain");
+  return conn->Respond(status::ok, it->second, "text/plain;charset=utf-8");
 }
 
 static void Echo(const HttpConnection::Ptr& conn, std::string&& data,
@@ -90,7 +89,7 @@ static void Echo(const HttpConnection::Ptr& conn, std::string&& data,
     oss << "p=<std::nullopt>" << std::endl;
   }
   oss << "body=" << req.body() << std::endl;
-  conn->Respond(status::ok, oss.str(), "text/plain");
+  conn->Respond(status::ok, oss.str(), "text/plain;charset=utf-8");
 }
 
 void TestHttpServer(std::stop_token st, const std::string& address,

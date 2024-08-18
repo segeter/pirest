@@ -1,5 +1,5 @@
-#include <boost/core/ignore_unused.hpp>
 #include <csignal>
+#include <iostream>
 
 #include "test.h"
 
