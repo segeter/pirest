@@ -15,6 +15,8 @@ class HttpBasicServer {
   HttpBasicServer() noexcept
       : acceptor_(accept_io_.ctx), socket_(socket_io_.ctx) {}
 
+  ~HttpBasicServer() noexcept { Close(); }
+
   HttpSetting& setting() noexcept { return setting_; }
 
   template <class Function>
