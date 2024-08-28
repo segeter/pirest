@@ -7,13 +7,39 @@
 
 namespace pirest {
 
+class SingleThreadIo {
+ public:
+  void Run() {
+    thread_ = std::thread([this]() { ctx_.run(); });
+  }
+
+  void Close() {
+    ctx_.stop();
+    guard_.reset();
+    try {
+      thread_.join();
+    } catch (const std::exception&) {
+    }
+  }
+
+  boost::asio::io_context& ctx() noexcept { return ctx_; }
+
+ private:
+  std::thread thread_;
+  boost::asio::io_context ctx_{1};
+  boost::asio::executor_work_guard<boost::asio::io_context::executor_type>
+      guard_ = boost::asio::make_work_guard(ctx_);
+};
+
 template <class CONNECTION>
 class HttpBasicServer {
  public:
   using Ptr = std::shared_ptr<HttpBasicServer>;
 
   HttpBasicServer() noexcept
-      : acceptor_(accept_io_.ctx), socket_(socket_io_.ctx) {}
+      : acceptor_(accept_io_.ctx()), socket_(socket_io_.ctx()) {}
+
+  ~HttpBasicServer() noexcept { Close(); }
 
   HttpSetting& setting() noexcept { return setting_; }
 
@@ -30,26 +56,23 @@ class HttpBasicServer {
     acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
     acceptor_.bind(endpoint);
     acceptor_.listen();
-    accept_io_.thread = std::thread([this]() { accept_io_.ctx.run(); });
-    socket_io_.thread = std::thread([this]() { socket_io_.ctx.run(); });
+    accept_io_.Run();
+    socket_io_.Run();
     StartAccept();
   }
 
   void Close() noexcept {
     closed_ = true;
-    accept_io_.ctx.stop();
-    accept_io_.guard.reset();
-    try {
-      accept_io_.thread.join();
-    } catch (const std::exception&) {
-    }
-    socket_io_.ctx.stop();
-    socket_io_.guard.reset();
-    try {
-      socket_io_.thread.join();
-    } catch (const std::exception&) {
-    }
-    acceptor_ = boost::asio::ip::tcp::acceptor(acceptor_.get_executor());
+    boost::system::error_code ec;
+    acceptor_.cancel(ec);
+    acceptor_.close(ec);
+    accept_io_.Close();
+    socket_io_.Close();
+    acceptor_ = boost::asio::ip::tcp::acceptor{accept_io_.ctx()};
+  }
+
+  boost::asio::ip::tcp::endpoint local_endpoint() const {
+    return acceptor_.local_endpoint();
   }
 
  private:
@@ -57,7 +80,7 @@ class HttpBasicServer {
     acceptor_.async_accept(
         socket_, [this](const boost::system::error_code& ec) {
           if (!ec) {
-            boost::beast::tcp_stream stream(std::move(socket_));
+            boost::beast::tcp_stream stream{std::move(socket_)};
             stream.expires_after(setting_.read_timeout);
             std::make_shared<CONNECTION>(std::move(stream),
                                          boost::beast::flat_buffer{}, ssl_ctx_,
@@ -72,12 +95,8 @@ class HttpBasicServer {
 
  private:
   bool closed_ = false;
-  struct {
-    std::thread thread;
-    boost::asio::io_context ctx{1};
-    boost::asio::executor_work_guard<boost::asio::io_context::executor_type>
-        guard = boost::asio::make_work_guard(ctx);
-  } accept_io_, socket_io_;
+  SingleThreadIo accept_io_;
+  SingleThreadIo socket_io_;
   boost::asio::ip::tcp::acceptor acceptor_;
   boost::asio::ip::tcp::socket socket_;
   boost::asio::ssl::context ssl_ctx_{boost::asio::ssl::context::tlsv12};

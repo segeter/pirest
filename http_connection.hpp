@@ -98,47 +98,6 @@ class HttpConnection {
     Respond(std::move(resp));
   }
 
-  void Respond(boost::beast::http::status status, const char* body,
-               const char* content_type, const HttpHeaderList& headers = {}) {
-    Respond(status, body, content_type, request_.keep_alive(), headers);
-  }
-
-  void Respond(boost::beast::http::status status, const char* body,
-               const char* content_type, bool keep_alive,
-               const HttpHeaderList& headers = {}) {
-    boost::beast::http::response<boost::beast::http::string_body> resp(
-        status, request_.version());
-    resp.keep_alive(keep_alive);
-    resp.set(boost::beast::http::field::content_type, content_type);
-    for (const auto& pair : headers) {
-      resp.set(pair.first, pair.second);
-    }
-    resp.body() = body;
-    resp.prepare_payload();
-    Respond(std::move(resp));
-  }
-
-  void Respond(boost::beast::http::status status, const char* body,
-               std::size_t size, const char* content_type,
-               const HttpHeaderList& headers = {}) {
-    Respond(status, body, size, content_type, request_.keep_alive(), headers);
-  }
-
-  void Respond(boost::beast::http::status status, const char* body,
-               std::size_t size, const char* content_type, bool keep_alive,
-               const HttpHeaderList& headers = {}) {
-    boost::beast::http::response<boost::beast::http::string_body> resp(
-        status, request_.version());
-    resp.keep_alive(keep_alive);
-    resp.set(boost::beast::http::field::content_type, content_type);
-    for (const auto& pair : headers) {
-      resp.set(pair.first, pair.second);
-    }
-    resp.body().append(body, size);
-    resp.prepare_payload();
-    Respond(std::move(resp));
-  }
-
   void set_allow_origin(const std::string& origin) noexcept {
     allow_origin_ = origin;
   }
