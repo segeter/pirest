@@ -89,9 +89,9 @@ class HttpBasicRouter {
 
     RouteBinder(std::size_t path_arg_num, ParamList capture_params,
                 Function&& func)
-        : path_arg_num_(path_arg_num),
-          capture_params_(std::move(capture_params)),
-          func_(std::forward<Function>(func)) {
+        : path_arg_num_{path_arg_num},
+          capture_params_{std::move(capture_params)},
+          func_{std::forward<Function>(func)} {
       if (capture_params_.size() + path_arg_num_ != Traits::kArgNum) {
         throw std::runtime_error("Number of parameters does not match");
       }
@@ -211,8 +211,8 @@ class HttpBasicRouter {
     RouteItem() noexcept = default;
 
     explicit RouteItem(const std::string& regex_path) noexcept
-        : regex_path_(regex_path) {
-      regex_ = std::regex(regex_path, std::regex_constants::icase);
+        : regex_path_{regex_path} {
+      regex_ = std::regex{regex_path, std::regex_constants::icase};
     }
 
     const std::regex& regex() const noexcept { return regex_; }
@@ -256,7 +256,7 @@ class HttpBasicRouter {
         }
       }
       throw std::runtime_error("Parameter mismatch");
-      return Ret();
+      return Ret{};
     }
 
    private:
@@ -315,7 +315,7 @@ class HttpBasicRouter {
 
     if (!item_ptr) {
       if (is_regex) {
-        RouteItem item(replaced_path);
+        RouteItem item{replaced_path};
         route_vec_.emplace_back(std::move(item));
         item_ptr = &route_vec_.back();
       } else {
@@ -355,8 +355,10 @@ class HttpBasicRouter {
     if (r.has_error()) {
       throw std::runtime_error("Bad url target");
     }
+    auto& v = r.value();
+    auto path = v.path();
     std::smatch results;
-    auto route = FindRoute(r.value().path(), results);
+    auto route = FindRoute(path, results);
     if (!route) {
       throw std::runtime_error("Route not found");
     }
@@ -364,7 +366,7 @@ class HttpBasicRouter {
       throw std::runtime_error("Method not allowed");
     }
     ArgumentMap arg_map;
-    for (auto param : r.value().params()) {
+    for (auto param : v.params()) {
       ToLower(param.key);
       arg_map.insert(
           std::make_pair(std::move(param.key), std::move(param.value)));

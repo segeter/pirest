@@ -32,20 +32,20 @@ static void UserLogin(const HttpConnection::Ptr& conn) {
 }
 
 static void AddChannel(const HttpConnection::Ptr& conn) {
-  std::lock_guard lock(mutex);
+  std::lock_guard lock{mutex};
   auto id = ++channel_id;
   channel_map[id] = conn->ReleaseBody();
   conn->Respond(status::ok, std::to_string(id), "text/plain");
 }
 
 static void DeleteChannel(const HttpConnection::Ptr& conn, std::uint64_t id) {
-  std::lock_guard lock(mutex);
+  std::lock_guard lock{mutex};
   channel_map.erase(id);
   conn->Respond(status::ok);
 }
 
 static void UpdateChannel(const HttpConnection::Ptr& conn, std::uint64_t id) {
-  std::lock_guard lock(mutex);
+  std::lock_guard lock{mutex};
   auto it = channel_map.find(id);
   if (it != channel_map.end()) {
     it->second = conn->request().body();
@@ -55,7 +55,7 @@ static void UpdateChannel(const HttpConnection::Ptr& conn, std::uint64_t id) {
 
 static void GetChannelList(const HttpConnection::Ptr& conn) {
   std::ostringstream oss;
-  std::lock_guard lock(mutex);
+  std::lock_guard lock{mutex};
   for (const auto& it : channel_map) {
     oss << it.first << ":" << it.second << ",";
   }
@@ -67,7 +67,7 @@ static void GetChannelList(const HttpConnection::Ptr& conn) {
 }
 
 static void GetChannel(const HttpConnection::Ptr& conn, std::uint64_t id) {
-  std::lock_guard lock(mutex);
+  std::lock_guard lock{mutex};
   auto it = channel_map.find(id);
   if (it == channel_map.end()) {
     return conn->Respond(status::not_found,
@@ -94,7 +94,7 @@ static void Echo(const HttpConnection::Ptr& conn, std::string&& data,
 
 void TestHttpServer(std::stop_token st, const std::string& address,
                     std::uint16_t port) {
-  auto server = std::make_shared<HttpDetectServer>();
+  HttpDetectServer server;
 
   {
     auto filter = std::make_shared<HttpCorsFilter>();
@@ -102,26 +102,24 @@ void TestHttpServer(std::stop_token st, const std::string& address,
         .set_allow_methods({"POST", "GET", "PUT", "DELETE", "OPTIONS"})
         .set_allow_any_headers(true)
         .set_expose_headers({"authorization"});
-    server->setting().AddFilter(filter).AddFilter(
+    server.setting().AddFilter(filter).AddFilter(
         std::make_shared<AuthorizationFilter>());
   }
 
-  server->HandleFunc("/user/login", &UserLogin, {"POST"});
-  server->HandleFunc("/channel", &AddChannel, {"POST"});
-  server->HandleFunc("/channel/{id}", &DeleteChannel, {"DELETE"});
-  server->HandleFunc("/channel/{id}", &UpdateChannel, {"PUT"});
-  server->HandleFunc("/channel", &GetChannelList, {"GET"});
-  server->HandleFunc("/channel/{id}", &GetChannel, {"GET"});
-  server->HandleFunc("/echo/{}?p", &Echo, {"GET", "POST"});
+  server.HandleFunc("/user/login", &UserLogin, {"POST"});
+  server.HandleFunc("/channel", &AddChannel, {"POST"});
+  server.HandleFunc("/channel/{id}", &DeleteChannel, {"DELETE"});
+  server.HandleFunc("/channel/{id}", &UpdateChannel, {"PUT"});
+  server.HandleFunc("/channel", &GetChannelList, {"GET"});
+  server.HandleFunc("/channel/{id}", &GetChannel, {"GET"});
+  server.HandleFunc("/echo/{}?p", &Echo, {"GET", "POST"});
 
   std::srand((unsigned int)std::time(nullptr));
 
-  server->ListenAndServe(address, port);
+  server.ListenAndServe(address, port);
 
   while (!st.stop_requested()) {
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(100ms);
   }
-
-  server->Close();
 }

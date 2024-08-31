@@ -23,7 +23,7 @@ class HttpConnectionBase : public HttpConnection {
  public:
   HttpConnectionBase(boost::beast::flat_buffer buffer, HttpRouter& router,
                      HttpSetting& setting) noexcept
-      : buffer_(std::move(buffer)), router_(router), setting_(setting) {
+      : buffer_{std::move(buffer)}, router_{router}, setting_{setting} {
     conn_variant_ = this;
   }
 
@@ -127,8 +127,8 @@ class HttpPlainConnection
                       boost::beast::flat_buffer buffer,
                       boost::asio::ssl::context&, HttpRouter& router,
                       HttpSetting& setting) noexcept
-      : HttpConnectionBase(std::move(buffer), router, setting),
-        stream_(std::move(stream)) {}
+      : HttpConnectionBase{std::move(buffer), router, setting},
+        stream_{std::move(stream)} {}
 
   void Run() { ReadRequest(); }
 
@@ -157,8 +157,8 @@ class HttpSslConnection
                     boost::beast::flat_buffer buffer,
                     boost::asio::ssl::context& ssl_ctx, HttpRouter& router,
                     HttpSetting& setting) noexcept
-      : HttpConnectionBase(std::move(buffer), router, setting),
-        stream_(std::move(stream), ssl_ctx) {}
+      : HttpConnectionBase{std::move(buffer), router, setting},
+        stream_{std::move(stream), ssl_ctx} {}
 
   void Run() {
     stream_.async_handshake(
@@ -197,11 +197,11 @@ class HttpDetectConnection
                        boost::beast::flat_buffer buffer,
                        boost::asio::ssl::context& ssl_ctx, HttpRouter& router,
                        HttpSetting& setting) noexcept
-      : stream_(std::move(stream)),
-        buffer_(std::move(buffer)),
-        ssl_ctx_(ssl_ctx),
-        router_(router),
-        setting_(setting) {}
+      : stream_{std::move(stream)},
+        buffer_{std::move(buffer)},
+        ssl_ctx_{ssl_ctx},
+        router_{router},
+        setting_{setting} {}
 
   void Run() {
     boost::beast::async_detect_ssl(

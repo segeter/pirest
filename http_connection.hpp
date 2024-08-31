@@ -47,8 +47,8 @@ class HttpConnection {
 
   void Respond(boost::beast::http::status status, bool keep_alive,
                const HttpHeaderList& headers = {}) {
-    boost::beast::http::response<boost::beast::http::empty_body> resp(
-        status, request_.version());
+    boost::beast::http::response<boost::beast::http::empty_body> resp{
+        status, request_.version()};
     resp.content_length(0);
     resp.keep_alive(keep_alive);
     for (const auto& pair : headers) {
@@ -66,8 +66,8 @@ class HttpConnection {
   void Respond(boost::beast::http::status status, std::string&& body,
                const char* content_type, bool keep_alive,
                const HttpHeaderList& headers = {}) {
-    boost::beast::http::response<boost::beast::http::string_body> resp(
-        status, request_.version());
+    boost::beast::http::response<boost::beast::http::string_body> resp{
+        status, request_.version()};
     resp.keep_alive(keep_alive);
     resp.set(boost::beast::http::field::content_type, content_type);
     for (const auto& pair : headers) {
@@ -86,8 +86,8 @@ class HttpConnection {
   void Respond(boost::beast::http::status status, const std::string& body,
                const char* content_type, bool keep_alive,
                const HttpHeaderList& headers = {}) {
-    boost::beast::http::response<boost::beast::http::string_body> resp(
-        status, request_.version());
+    boost::beast::http::response<boost::beast::http::string_body> resp{
+        status, request_.version()};
     resp.keep_alive(keep_alive);
     resp.set(boost::beast::http::field::content_type, content_type);
     for (const auto& pair : headers) {

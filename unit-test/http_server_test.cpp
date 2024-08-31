@@ -7,24 +7,24 @@
 using namespace pirest;
 
 TEST(HttpServerTest, TestDestructor) {
-  { auto _ = std::make_shared<HttpPlainServer>(); }
+  { HttpPlainServer server; }
 
   {
-    auto server = std::make_shared<HttpPlainServer>();
-    server->ListenAndServe("0.0.0.0", 0);
+    HttpPlainServer server;
+    server.ListenAndServe("0.0.0.0", 0);
   }
 }
 
 TEST(HttpServerTest, TestLogic) {
-  auto server = std::make_shared<HttpPlainServer>();
+  HttpPlainServer server;
   for (auto i = 0; i < 3; ++i) {
-    server->Close();
+    server.Close();
   }
 
-  server->ListenAndServe("0.0.0.0", 0);
+  server.ListenAndServe("0.0.0.0", 0);
   for (auto i = 0; i < 3; ++i) {
-    server->Close();
+    server.Close();
   }
 
-  server->ListenAndServe("0.0.0.0", 0);
+  server.ListenAndServe("0.0.0.0", 0);
 }

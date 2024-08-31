@@ -34,10 +34,8 @@ class SingleThreadIo {
 template <class CONNECTION>
 class HttpBasicServer {
  public:
-  using Ptr = std::shared_ptr<HttpBasicServer>;
-
   HttpBasicServer() noexcept
-      : acceptor_(accept_io_.ctx()), socket_(socket_io_.ctx()) {}
+      : acceptor_{accept_io_.ctx()}, socket_{socket_io_.ctx()} {}
 
   ~HttpBasicServer() noexcept { Close(); }
 
@@ -50,8 +48,8 @@ class HttpBasicServer {
   }
 
   void ListenAndServe(const std::string& address, std::uint16_t port) {
-    boost::asio::ip::tcp::endpoint endpoint(
-        boost::asio::ip::make_address(address), port);
+    boost::asio::ip::tcp::endpoint endpoint{
+        boost::asio::ip::make_address(address), port};
     acceptor_.open(endpoint.protocol());
     acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
     acceptor_.bind(endpoint);
